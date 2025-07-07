@@ -1,0 +1,98 @@
+.head-container, .bodyb-container, .leg-container {
+    position: relative;
+    width: 200px;
+    height: 150px;
+    margin: 0 20px;
+     /* Temporary - see the container bounds */
+}
+.head_overall, .bodyb_overall, .Leg_overall {
+    display: flex;
+    flex-direction: row;        /* Horizontal layout */
+    align-items: center;        /* Center buttons to image height */
+    justify-content: center;
+    margin: 20px 0;
+}
+.head, .bodyb, .leg {
+    position: absolute;
+    top: 50%;                    /* Center vertically */
+    left: 50%;                   /* Center horizontally */
+    transform: translate(-50%, -50%);  /* Perfect centering */
+    /* Remove the width: 100% */
+}
+
+/* Then your active/inactive transforms work on top of this centering */
+.active {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.inactive {
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.head-container, .bodyb-container, .leg-container {
+    position: relative;
+}
+.head img {
+    width: 110%;
+    max-width: none;  /* Remove the pixel constraint */
+    
+}
+
+.body_ov{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh; /* Full viewport height */
+    background-color: #f0f0f0; /* Light background for contrast */
+}
+
+ .bodyb img, .leg img {
+    height: 200px;  /* Same height for all */
+    width: auto;    /* Maintain aspect ratio */
+    object-fit: contain;  /* Don't distort images */
+}
+.button-right{
+     background-color: #1417dc;  /* Lego red */
+    border: 2px solid rgb(0, 3, 170);     /* Darker border for 3D effect */
+    border-radius: 4px;         /* Slightly rounded like Lego */
+    box-shadow: 0 3px 0 rgb(0, 3, 170);   /* 3D "pressed down" effect */
+    width: 20%; /* Set a fixed width for the button */
+    height: 20%; /* Set a fixed height for the button */
+    font-size:large;
+
+}
+
+.button-left {
+    background-color: #dc143c;  /* Lego red */
+    border: 2px solid #a00;     /* Darker border for 3D effect */
+    border-radius: 4px;         /* Slightly rounded like Lego */
+    box-shadow: 0 3px 0 #a00;   /* 3D "pressed down" effect */
+    width: 20%; /* Set a fixed width for the button */
+    height: 20%; /* Set a fixed height for the button */
+    font-size:large;
+}
+.button-left:hover {
+    background-color: #b8102e;  /* Darker red */
+    cursor: pointer;            /* Show it's clickable */
+}
+
+.button-left:active {
+    background-color: #a00;     /* Even darker when pressed */
+    box-shadow: 0 1px 0 #a00;   /* Reduce shadow = "pressed down" */
+    transform: translateY(2px); /* Move button down slightly */
+}
+
+.button-right:hover {
+    background-color: #0f15b3;  /* Darker blue */
+    cursor: pointer;            /* Show it's clickable */
+}   
+.button-right:active {
+    background-color: #0c0f8a;   /* Even darker when pressed */
+    box-shadow: 0 1px 0 rgb(0, 3, 170); /* Reduce shadow = "pressed down" */
+    transform: translateY(2px); /* Move button down slightly */
+}

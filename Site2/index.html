@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site 2</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <canvas id="canvas" width="800" height="400"></canvas>
+</body>
+
+</body>
+<script>
+    var c = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    ctx.beginPath();
+    ctx.rect(40, 40, 20, 20);
+    ctx.stroke();
+    let penguinY = 350;
+    let penguinVelocity = 0;
+    let gravity = 0.8;
+    document.addEventListener("keydown", (event) =>
+    {
+        if (event.code === "Space" && penguinY >= 350)
+        {  // only jump when on ground
+            penguinVelocity = -15;
+            console.log("Jump!");
+        }
+    });
+    let groundX = 0;
+    function animatePenguin()
+    {
+        ctx.clearRect(0, 0, 800, 400);
+        ctx.beginPath();
+        ctx.rect(40, penguinY, 20, 20);
+        ctx.stroke();
+
+
+        // Draw a patterned ground instead of solid
+        ctx.fillStyle = "brown";
+        for (let i = 0; i < 5; i++)
+        {
+            ctx.fillRect(groundX + (i * 200), 370, 100, 30); // brown segments
+            ctx.fillRect(groundX + (i * 200) + 100, 370, 100, 30); // gaps between
+        }
+        penguinVelocity += gravity;
+        penguinY += penguinVelocity;
+
+
+        if (penguinY > 10)
+        {
+            setTimeout(animatePenguin, 16); // 50ms delay
+        }
+        if (penguinY >= 350)
+        {
+            penguinY = 350; // stop at the bottom
+            penguinVelocity = 0; // reset velocity
+
+        }
+    }
+    animatePenguin();
+</script>
+
+</html>
