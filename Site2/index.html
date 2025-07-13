@@ -2,67 +2,264 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Site 2</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8" />
+    <title>Penguin Runner</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            display: flex;
+            justify-content: center
+        }
+
+        canvas {
+            border: 2px solid #fff;
+            box-shadow: 0 0 15px #000
+        }
+    </style>
 </head>
 
 <body>
     <canvas id="canvas" width="800" height="400"></canvas>
+
+    <script>
+        /* --------------------------------------------------
+           1 · Canvas & globals
+        -------------------------------------------------- */
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let score = 0;
+        let frame = 0;
+        let squashTimer = 0;
+        const SQUASH_FRAMES = 8;
+
+        const GRADIENT = (() =>
+        {
+            const g = ctx.createLinearGradient(0, 0, 0, 400);
+            g.addColorStop(0, '#87CEEB');
+            g.addColorStop(1, '#F0F8FF');
+            return g;
+        })();
+
+        /* --------------------------------------------------
+           2 · Mountains
+        -------------------------------------------------- */
+        function drawRidge(ctx, y = 280, amp = 20)
+        {
+            ctx.fillStyle = '#d6e4ff';
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            for (let x = 0; x <= 800; x += 40) ctx.lineTo(x, y + Math.sin(x * 0.01) * amp);
+            ctx.lineTo(800, 400); ctx.lineTo(0, 400); ctx.closePath(); ctx.fill();
+        }
+
+        class MountainStrip
+        {
+            constructor(offset, speed, palette)
+            {
+                this.offset = offset; this.speed = speed; this.palette = palette;
+                this.peaks = Array.from({ length: 6 }, () => ({ w: 120 + Math.random() * 80, h: 60 + Math.random() * 40 }));
+            }
+            draw(ctx)
+            {
+                let x = this.offset;
+                this.peaks.forEach(({ w, h }, i) =>
+                {
+                    ctx.fillStyle = this.palette[i % this.palette.length];
+                    ctx.beginPath(); ctx.moveTo(x, 400); ctx.lineTo(x + w / 2, 400 - h); ctx.lineTo(x + w, 400);
+                    ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.moveTo(x + w / 2, 400 - h);
+                    ctx.lineTo(x + w / 2 - 20, 400 - h + 20); ctx.lineTo(x + w / 2 + 20, 400 - h + 20);
+                    ctx.closePath(); ctx.fill();
+                    x += w;
+                });
+                this.offset -= this.speed;
+                if (this.offset <= -800) this.offset += 800;
+            }
+        }
+        const backMountains = new MountainStrip(0, 0.5, ['#bcd3ff', '#a9c8ff', '#9cbcff']);
+        const foreMountains = new MountainStrip(-400, 1.0, ['#85aaff', '#7198ff', '#628cff']);
+
+        /* --------------------------------------------------
+           3 · Game objects
+        -------------------------------------------------- */
+        let penguinY = 350;
+        let penguinVel = 0;
+        let penguinState = 'running';
+        const GRAVITY = 0.8;
+
+        const snowflakes = Array.from({ length: 20 }, () => ({
+            x: Math.random() * 800,
+            y: Math.random() * -400,
+            speed: Math.random() * 2 + 1,
+            size: Math.random() * 3 + 2
+        }));
+
+        let groundX = 0;
+        let obstacleX = 800;
+        let gameRunning = true;
+
+        /* --------------------------------------------------
+           4 · Input
+        -------------------------------------------------- */
+        function jump() { if (penguinY >= 350) penguinVel = -15; }
+        document.addEventListener('keydown', e => { if (e.code === 'Space') jump(); });
+        canvas.addEventListener('touchstart', jump); // mobile
+
+        /* --------------------------------------------------
+           5 · Penguin drawing
+        -------------------------------------------------- */
+        function drawPenguin(ctx, y, state)
+        {
+            const x = 50;
+            /* squash & tilt -------------------------------------------------- */
+            const squash = squashTimer > 0 ? squashTimer / SQUASH_FRAMES : 0;
+            const scaleX = 1 + 0.25 * squash;
+            const scaleY = 1 - 0.25 * squash;
+            const tilt = state === 'jumping' ? -0.3 : state === 'falling' ? 0.2 : 0;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(tilt);
+            ctx.scale(scaleX, scaleY);
+
+            /* body */
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.ellipse(0, 10, 8, 15, 0, 0, Math.PI * 2); ctx.fill();
+
+            /* head */
+            ctx.beginPath(); ctx.arc(0, -5, 6, 0, Math.PI * 2); ctx.fill();
+
+            /* face highlight & pupil */
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(0, -5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(0, -5, 1, 0, Math.PI * 2); ctx.fill();
+
+            /* beak */
+            ctx.fillStyle = 'orange';
+            ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(15, -5); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill();
+
+            /* belly */
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.ellipse(0, 12, 5, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+            /* wings with flap ----------------------------------------------- */
+            const flap = state === 'running'
+                ? Math.sin(frame * 0.25) * 0.4
+                : state === 'jumping' ? -0.6 : 0.6;
+
+            ['left', 'right'].forEach(side =>
+            {
+                const s = side === 'left' ? -1 : 1;
+                ctx.save();
+                ctx.translate(s * 8, 5);
+                ctx.rotate(s * flap);
+                ctx.fillStyle = 'black';
+                ctx.beginPath(); ctx.ellipse(0, 0, 3, 8, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        /* --------------------------------------------------
+           6 · Main loop
+        -------------------------------------------------- */
+        function animate()
+        {
+            /* sky */
+            ctx.fillStyle = GRADIENT;
+            ctx.fillRect(0, 0, 800, 400);
+
+            /* backdrop */
+            drawRidge(ctx);
+            backMountains.draw(ctx);
+            foreMountains.draw(ctx);
+
+            /* ground snow */
+            ctx.fillStyle = '#f6faff';
+            ctx.fillRect(0, 370, 800, 30);
+
+            /* snowflakes */
+            ctx.fillStyle = '#fff';
+            snowflakes.forEach(f =>
+            {
+                ctx.beginPath(); ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2); ctx.fill();
+                f.y += f.speed; if (f.y > 400) { f.y = -10; f.x = Math.random() * 800; }
+            });
+
+            /* penguin ------------------------------------------*/
+            drawPenguin(ctx, penguinY, penguinState);
+
+            /* ice track */
+            ctx.fillStyle = '#e6f3ff';
+            for (let i = 0; i < 5; i++)
+            {
+                ctx.fillRect(groundX + i * 200, 370, 100, 30);
+                ctx.strokeStyle = '#b3d9ff'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(groundX + i * 200 + 20, 370);
+                ctx.lineTo(groundX + i * 200 + 80, 400); ctx.stroke();
+            }
+
+            /* obstacle */
+            ctx.fillStyle = '#cce7ff';
+            ctx.fillRect(obstacleX, 350, 20, 20);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(obstacleX + 2, 350, 4, 8);
+            obstacleX -= 2; if (obstacleX < -20) obstacleX = 800;
+
+            /* score */
+            ctx.fillStyle = '#003';
+            ctx.font = '20px monospace';
+            ctx.fillText('Score ' + Math.floor(score), 680, 30);
+
+            /* collision */
+            if (60 > obstacleX && 40 < obstacleX + 20 && penguinY + 20 > 350 && penguinY < 370)
+                gameRunning = false;
+
+            /* physics */
+            const prevY = penguinY;
+            penguinVel += GRAVITY;
+            penguinY += penguinVel;
+
+            if (penguinY >= 350)
+            {
+                penguinY = 350;
+                if (prevY < 350) squashTimer = SQUASH_FRAMES; // landed
+                penguinVel = 0;
+            }
+
+            /* penguin state for wing pose */
+            penguinState = penguinY >= 350 ? 'running'
+                : penguinVel < 0 ? 'jumping' : 'falling';
+
+            /* world scrolling */
+            groundX -= 2; if (groundX <= -200) groundX += 200;
+
+            /* bookkeeping */
+            frame++; if (squashTimer > 0) squashTimer--;
+            if (gameRunning) { score += 0.1; requestAnimationFrame(animate); }
+            else
+            {
+                ctx.fillStyle = 'rgba(255,0,0,0.25)';
+                ctx.fillRect(0, 0, 800, 400);
+                ctx.fillStyle = '#fff';
+                ctx.font = '28px monospace';
+                ctx.fillText('GAME OVER – press Space', 200, 200);
+            }
+        }
+        animate();
+
+        /* restart after crash */
+        document.addEventListener('keydown', e =>
+        {
+            if (!gameRunning && e.code === 'Space') window.location.reload();
+        });
+    </script>
 </body>
-
-</body>
-<script>
-    var c = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-
-    ctx.beginPath();
-    ctx.rect(40, 40, 20, 20);
-    ctx.stroke();
-    let penguinY = 350;
-    let penguinVelocity = 0;
-    let gravity = 0.8;
-    document.addEventListener("keydown", (event) =>
-    {
-        if (event.code === "Space" && penguinY >= 350)
-        {  // only jump when on ground
-            penguinVelocity = -15;
-            console.log("Jump!");
-        }
-    });
-    let groundX = 0;
-    function animatePenguin()
-    {
-        ctx.clearRect(0, 0, 800, 400);
-        ctx.beginPath();
-        ctx.rect(40, penguinY, 20, 20);
-        ctx.stroke();
-
-
-        // Draw a patterned ground instead of solid
-        ctx.fillStyle = "brown";
-        for (let i = 0; i < 5; i++)
-        {
-            ctx.fillRect(groundX + (i * 200), 370, 100, 30); // brown segments
-            ctx.fillRect(groundX + (i * 200) + 100, 370, 100, 30); // gaps between
-        }
-        penguinVelocity += gravity;
-        penguinY += penguinVelocity;
-
-
-        if (penguinY > 10)
-        {
-            setTimeout(animatePenguin, 16); // 50ms delay
-        }
-        if (penguinY >= 350)
-        {
-            penguinY = 350; // stop at the bottom
-            penguinVelocity = 0; // reset velocity
-
-        }
-    }
-    animatePenguin();
-</script>
 
 </html>
